@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>static list</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1,
+		minimum-scale = 1, maximum-scale = 1,user-scalable=no">
+		<style>
+			html, body {
+				height: 100%;
+				margin: 0;
+				font-size: 14px;
+				font-family: 'helvetica neue', Arial, 'open sans', sans-serif;
+			}
+
+			.header {
+				height: 30px;
+				line-height: 30px;
+				padding: 0 10px;
+				border-bottom: 1px solid #ccc;
+				box-sizing: border-box;
+				font-size: 10px;
+			}
+
+			.header  input {
+				width: 30px;
+			}
+
+			.header  select {
+				width: 60px;
+			}
+
+			#list {
+				position: absolute;
+				top: 30px;
+				right: 0;
+				bottom: 0;
+				left: 0;
+				overflow: auto;
+				-webkit-overflow-scrolling: touch;
+				max-width: 960px;
+				margin: 0 auto;
+			}
+
+			#content {
+				position: relative;
+			}
+
+			/* simple item */
+			.item {
+				box-sizing: border-box;
+				height: 80px;
+				width: 100%;
+				line-height: 80px;
+				padding: 0 20px;
+				background-color: #f8f8f8;
+				border-bottom: 1px solid #ddd;
+			}
+
+			.medium-item {
+				box-sizing: border-box;
+				width: 100%;
+				height: 80px;
+			}
+
+			/* mail (complex) item */
+			.message {
+				box-sizing: border-box;
+				padding: 4px;
+				padding-left: 77px;
+				line-height: 167%;
+				cursor: default;
+				background-color: white;
+				position: relative;
+				color: black;
+				background-repeat: no-repeat;
+				background-position: 10px 10px;
+				background-size: 60px;
+				border-bottom: 1px solid #ddd;
+			}
+
+			.from {
+				display: inline;
+				font-weight: bold;
+			}
+
+			.timestamp {
+				margin-left: 10px;
+				font-size: 12px;
+				opacity: 0.8;
+			}
+
+			.body {
+				font-size: 12px;
+				opacity: 0.8;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.subject {
+			}
+
+			.divider {
+				background: grey;
+				color: white;
+				height: 30px;
+				line-height: 30px;
+				padding: 0 10px;
+				text-transform: uppercase;
+			}
+
+			/* complex list item*/
+			.complex-item {
+				background: whitesmoke;
+				width: 100%;
+				height: 156px;
+				border-radius: 10px;
+				-webkit-box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.5);
+				margin: 4px;
+			}
+
+			.complex-item > :last-child {
+				padding: 10px;
+			}
+
+			.complex-flex {
+				display: -webkit-flex;
+			}
+
+			.complex-flex > * {
+				margin: 10px;
+				-webkit-flex: 1;
+				min-width: 0;
+				-webkit-transform: scale(0.9);
+				-webkit-box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.5);
+				border-radius: 10px;
+			}
+
+			.complex-flex > input {
+				max-width: 40px;
+			}
+
+			.complex-flex > img {
+				height: 80px;
+				width: 80px;
+			}
+
+			.complex-stuff > * {
+				display: inline-block;
+				margin: 2px 4%;
+				border-radius: 2px;
+				-webkit-box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.5);
+			}
+
+			.base {
+				display: none;
+				position: absolute;
+			}
+
+			.orderShow {
+				-webkit-transform: translateZ(0);
+			}
+		</style>
+	</head>
+	<body>
+		<div class="header">
+			<button onclick="reset()">
+				Refresh
+			</button>
+			<label style="display: none">rows:
+				<input id="rowsInput" value="5000">
+			</label>
+			<label style="display: none">overdraw:
+				<input id="overDrawInput" value="50">
+			</label>
+			<label>OrderShow:
+				<input id="makeLayersInput" type="checkbox">
+			</label>
+			<label>List View:
+				<select id="complexitySelect">
+					<option>simple</option>
+					<option selected>medium</option>
+				</select> </label>
+			<label>Year:
+			<select id="yearSelect">
+				<option>2015</option>
+				<option selected>2014</option>
+				<option>2013</option>
+				<option>2012</option>
+				<option>2011</option>
+				<option>2010</option>
+				<option>2009</option>
+				<option>2008</option>
+				<option>2007</option>
+				<option>2006</option>
+				<option>2005</option>
+			</select> </label>
+
+		</div>
+		<div id="list">
+			<div id="content"></div>
+		</div>
+		<script>
+			var list = document.querySelector('#list');
+			var content = document.querySelector('#content');
+			var overDraw = 0;
+			var rafing = false;
+			var scrollTime = 0;
+			var orderShow = false;
+			var RAF_AFTER_SCROLL_TIME = 3000;
+
+			// scrolling
+			function scroll() {
+				var t = list.scrollTop;
+				var h = list.clientHeight;
+				hideLastVisible();
+				showVisible(t, h);
+			}
+
+			function hideLastVisible() {
+				for (var i = 0,
+				    l = visible.length; i < l; i++) {
+					visible[i].style.display = null;
+				}
+			}
+
+			function showVisible(top, height, up) {
+				visible = [];
+				var rh = rowHeights[complexity];
+				var s = Math.floor(top / rh);
+				var c = Math.ceil(height / rh);
+				if (overDraw) {
+					s = Math.max(0, s - overDraw);
+					c += 2 * overDraw;
+				}
+				for (var i = s,
+				    n; i < s + c; i++) {
+					//console.log(content);
+					if (content.children[i]) {
+						n = content.children[i];
+						//console.log(n);
+						n.style.display = 'block';
+						visible.push(n);
+					}
+
+				}
+			}
+
+
+			list.onscroll = function() {
+				/*scrollTime = Date.now();
+				 if (!rafing) {
+				 raf();
+				 }*/
+				scroll();
+			};
+
+			requestAnimationFrame = window.requestAnimationFrame || webkitRequestAnimationFrame;
+			function raf() {
+				rafing = true;
+				requestAnimationFrame(function() {
+					scroll();
+					if (Date.now() - scrollTime < RAF_AFTER_SCROLL_TIME) {
+						raf();
+					} else {
+						rafing = false;
+					}
+				});
+			}
+
+			function removeDuplicate(arr) {
+				var exists = {},
+				    outArr = [],
+				    elm;
+
+				for (var i = 0; i < arr.length; i++) {
+					elm = arr[i];
+					if (!exists[elm]) {
+						outArr.push(elm);
+						exists[elm] = true;
+					}
+				}
+				return outArr;
+			}
+
+			// dom generation
+			reset = function() {
+				var yearValue = yearSelect.value;
+				var Array = [];
+				if(yearValue == 2014){
+					Array = ["Celebrity", "Kshatriya", "1: Nenokkadine", "Yevadu", "Love You Bangaram", "Manasunu Maaya Cheyake", "Heart Attack", "Pandavulu Pandavulu Tummeda", "Paisa", "Aaha Kalyanam", "Bhimavaram Bullodu", "Bangaru Kodipetta", "Yuddham", "Legend", "Rowdy", "Vichakshana", "Race Gurram", "Chandamama Kathalu", "Prathinidhi", "Anaamika", "Kotha Janta", "Manam", "Ulavacharu Biryani", "Oohalu Gusagusalade", "Autonagar Surya", "Celebrity", "Kshatriya", "1: Nenokkadine", "Yevadu", "Love You Bangaram", "Manasunu Maaya Cheyake", "Heart Attack", "Pandavulu Pandavulu Tummeda", "Medaram Jathara", "Paisa", "Malligadu Marriage Bureau", "Dil Deewana", "Hum Tum", "Love Dot Com", "Aaha Kalyanam", "Naa Rakumarudu", "Alibaba Okkade Donga", "Bhimavaram Bullodu", "Bangaru Kodipetta", "Nuvve Naa Bangaram", "To Let 4 Bachelors Only", "Yuddham", "Kamalatho Na Prayanam", "Hrudayam Ekkadunnadi", "Veta", "Savior", "Eduruleni Alexander", "Legend", "Boy Meets Girl Tholiprema Katha", "Special Class", "Rowdy", "Vichakshana", "Hrudaya Kaleyam", "Race Gurram", "Laddu Babu", "Avatharam", "Prathighatana", "Prabhanjanam", "Chandamama Kathalu", "Prathinidhi", "Galata", "Anaamika", "Kotha Janta", "Hrudaya Kaleyam", "April Fool", "Pyar Mein Padipoya", "Manam", "Prema Geema Jantha Nai", "Ulavacharu Biryani", "Veedu Chaala Worst", "Jump Jilani", "Jabilli Kosam Akasamalle", "Oohalu Gusagusalade", "Maine Pyaar Kiya", "Autonagar Surya", "Inka Emi Anukoledu"];
+				}else if(yearValue == 2015){
+					Array =["A Shyam Gopal Varma Film", "Gopala Gopala", "Pataas", "Ladies & Gentleman", "Malli Malli Idi Rani Roju", "Temper", "Bandipotu", "Bham Bolenath", "Surya vs Surya", "Tommy", "Krishnamma Kalipindi Iddarini", "Yevade Subramanyam", "Janda Pai Kapiraju", "Rey", "Jil", "A Shyam Gopal Varma Film", "Mana Kurralle", "Gopala Gopala", "Pataas", "Beeruva", "Intelligent Idiots", "Top Rankers", "Ladies & Gentleman", "Dorakadu", "Gaddam Gang", "Malli Malli Idi Rani Roju", "Pesarattu", "Temper", "Paddanandi Premalo Mari", "Bandipotu", "Nuvvu Nenu Okatavudaam", "Gayakudu", "Bham Bolenath", "Ramleela", "Surya vs Surya", "Naakaithe Nachindi", "Anandam Malli Modalaindi", "Tommy", "Thappatadugu", "Krishnamma Kalipindi Iddarini", "Tungabhadra", "Yevade Subramanyam", "Janda Pai Kapiraju", "Rey", "Jil"];
+				}else if(yearValue == 2013){
+					Array =["Naayak", "Seethamma Vakitlo Sirimalle Chettu", "Ongole Githa", "Mirchi", "Okkadine", "Chammak Challo", "Jabardasth", "Mr. Pellikoduku", "Race", "Gundello Godari", "Telugabbai", "Backbench Student", "Swamy Ra Ra", "Priyathama Neevachata Kushalama", "Aravind 2", "Jaffa", "Baadshah", "Jai Sriram", "Gunde Jaari Gallanthayyinde", "Gouravam", "Shadow", "Greeku Veerudu", "Tadakha", "Sukumarudu", "Chemistry", "Iddarammayilatho", "Pavitra", "Prema Katha Chitram", "Saradaga Ammayitho", "Something Something", "Action", "Balupu", "Moksha", "Sevakudu", "916 KDM Premaa", "Naayak", "Seethamma Vakitlo Sirimalle Chettu", "Satruvu", "Case no 666/2013", "Ongole Githa", "Bullabbai", "Mirchi", "Okkadine", "Chammak Challo", "Jabardasth", "Mr. Pellikoduku", "Race", "Gundello Godari", "Mahankali", "Telugabbai", "3G Love", "Backbench Student", "Rai Rai", "Bakara", "Swamy Satyananda", "Swamy Ra Ra", "Priyathama Neevachata Kushalama", "Aravind 2", "Jaffa", "Baadshah", "Jai Sriram", "Vasool Raja", "Gunde Jaari Gallanthayyinde", "Gouravam", "Shadow", "Greeku Veerudu", "Tadakha", "Love Touch", "Sukumarudu", "143 Hyderabad", "Chemistry", "Iddarammayilatho", "Pavitra", "Theatre Lo Naluguru", "Prema Katha Chitram", "Saradaga Ammayitho", "Something Something", "Action", "Balupu", "Moksha", "Oh My Love"]
+				}else if(yearValue == 2012){
+					Array =["Businessman", "Bodyguard", "Nandeeswarudu", "Dhoni", "SMS", "Love Failure", "Nippu", "Poola Rangadu", "Ishq", "Mr. Nokia", "Nuvva Nena", "Naa Ishtam", "Lovely", "Rachcha", "Dammu", "Gabbar Singh", "Daruvu", "Adhinayakudu", "Endukante... Premanta!", "All the Best", "Bachelors 2", "Businessman", "Bodyguard", "Nandeeswarudu", "Ayyare", "Ramadandu", "Love Cheste", "Alibaba Intlo Andaru Dongale", "Dhoni", "Rushi", "SMS", "Veerangam", "Love Failure", "Nippu", "Poola Rangadu", "Ishq", "My Heart is Beating", "10th Class Lo", "Mr. Nokia", "Kulu Manali", "Nuvva Nena", "Prema Pilustondi", "Ding Dong Bell", "Naa Ishtam", "Ee Rojullo", "Seeta Weds Sriram", "Lovely", "Balaraju Aadi Bammardi", "Rachcha", "Neeku Naaku Dash Dash", "Devasthanam", "Friendsbook", "Disco", "Nuvvekadunte Nenakkadunta", "Maa Oorilo Okasari Emi Jarigindante", "Anukokunda", "Dammu", "Gabbar Singh", "Sashesam", "Guruvaram", "Daruvu", "Yadartha Prema Katha", "Adhinayakudu", "Endukante... Premanta!", "Gandharvulu", "Naalo Nenu", "Oka Romantic Crime Katha", "Maa Abbai Engineering Student", "Mem Vayasuku Vacham", "All the Best"]
+				}else if(yearValue == 2011){
+					Array =["Graduate", "Parama Veera Chakra", "Mirapakaya", "Anagananga Oka Dheerudu", "Golconda High School", "Ala Modalaindi", "Wanted", "Vaareva", "Rakshana", "Jai Bolo Telangana", "Koffee Bar", "Devadasini", "Anthima Theerpu", "Gaganam", "Vastadu Naa Raju", "Erra Gulabilu", "Katha Screenplay Darshakatvam Appalaraju", "Aha Naa Pellanta", "LBW Life Before Wedding", "Kudirithe Cup Coffee", "Prema Kavali", "Mangala", "Super", "Gang War", "Thimmaraju", "Nitya Pellikoduku", "Dongala Mutha", "Raaj", "Jackie", "Karalu Miriyalu", "Chattam", "Puli Veta", "Shakti", "America Alludu", "Manchivadu", "Lankeshwari", "Lokame Kothaga", "Teenmaar", "Galli Kurrolu", "Mr. Perfect", "Nenu Naa Rakshasi", "100% Love", "Seema Tapakai", "Rangam", "Veera", "Vaishali", "Vykuntapali", "Maaro", "Prema Sagaram", "Babloo", "Badhrinaadh", "Vaadu Veedu", "180", "Nagaram Nidrapotunna Vela", "Graduate", "Parama Veera Chakra", "Mirapakaya", "Anagananga Oka Dheerudu", "Golconda High School", "Ala Modalaindi", "Wanted", "Vaareva", "Rakshana", "Jai Bolo Telangana", "Koffee Bar", "Devadasini", "Anthima Theerpu", "Gaganam", "Vastadu Naa Raju", "Erra Gulabilu", "Katha Screenplay Darshakatvam Appalaraju", "Aha Naa Pellanta", "LBW Life Before Wedding", "Kudirithe Cup Coffee", "Prema Kavali", "Mangala", "Super", "Gang War", "Thimmaraju", "Nitya Pellikoduku", "Dongala Mutha", "Raaj", "Jackie", "Karalu Miriyalu", "Chattam", "Puli Veta", "Shakti", "America Alludu", "Manchivadu", "Lankeshwari", "Lokame Kothaga", "Teenmaar", "Galli Kurrolu", "Mr. Perfect", "Nenu Naa Rakshasi", "100% Love", "Seema Tapakai", "Rangam", "Veera", "Vaishali"]
+				}else if(yearValue == 2010){
+					Array =["Vaishali", "Dussasana", "Vykuntapali", "Maaro", "Prema Sagaram", "Babloo", "Badhrinaadh", "Vaadu Veedu", "180", "Nagaram Nidrapotunna Vela"]
+				}else if(yearValue == 2009){
+					//Array =
+				}else if(yearValue == 2008){
+					
+				}
+				
+				
+				
+				names = Array;
+				
+				names = removeDuplicate(names);
+				visible = [];
+				scrollTime = 0;
+				rafing = false;
+				complexity = complexitySelect.value;
+				overDraw = Number(overDrawInput.value);
+				orderShow = makeLayersInput.checked;
+				var count = names.length;
+				var itemFn = items[complexity];
+				if (itemFn == items["medium"]) {
+					//names = [];
+					//for (var i=0; i<count; i++) {
+					//names.push(namegen.generateName(4, 8));
+					//}
+					names.sort();
+				}
+				content.innerHTML = '';
+				var classes = 'base' + ( orderShow ? ' orderShow' : '');
+				for (var i = 0,
+				    html = ''; i < count; i++) {
+					html += itemFn(i, classes);
+				}
+				content.innerHTML = html;
+				list.scrollTop = 0;
+				content.style.height = (rowHeights[complexity] * count) + 'px';
+				scroll();
+			}
+			namegen = {
+				generateString : function(inLength) {
+					var s = '';
+					for (var i = 0; i < inLength; i++) {
+						s += String.fromCharCode(Math.floor(Math.random() * 26) + 97);
+					}
+					return s;
+				},
+				generateName : function(inMin, inMax) {
+					return this.generateString(Math.floor(Math.random() * (inMax - inMin + 1) + inMin));
+				}
+			};
+
+			strings = ["PARKOUR!", "Neque porro quisquam est qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit...", "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book."]
+
+			rowHeights = {
+				simple : 80,
+				medium : 80,
+				complex : 164
+			}
+
+			items = {
+				// one node, minimal styling
+				simple : function(i, classes) {
+					return '<div class="item ' + classes + '" style="top: ' + (i * rowHeights.simple) + 'px;"> ' + names[i] + ' -' + i + '</div>';
+				},
+				// 5 nodes, image as background, text clipping
+				medium : function(i, classes) {
+					var show;
+					var alphaentry = (names[i]).charAt(0);
+					//console.log(names[i]+"------"+names[i-1]);
+					var alphaentry_next;
+					if (names[i - 1] !== undefined) {
+						alphaentry_next = (names[i - 1]).charAt(0);
+					}
+					//console.log(alphaentry+"----"+alphaentry_next);
+					if (alphaentry !== alphaentry_next) {
+						show = true;
+					} else {
+						show = false;
+					}
+					return '<div class="medium-item ' + classes + '" style="top: ' + (i * rowHeights.medium) + 'px;">' + 
+					( orderShow ? show ? '<div class="divider">' + alphaentry + '</div>' : '' :'') + 
+					'<div class="message" style="background-image: url(' + i%4 + '.png);">' + '<span class="from">' + names[i] + '</span>' + '<div class="subject">Movie. ' + i + '</div>' + '</div></div>';
+				},
+				// kitchensink
+				complex : function(i, classes) {
+					return '<div class="complex-item ' + classes + '" style="top: ' + (i * rowHeights.complex) + 'px;">' + '<div class="complex-flex">' + '<img src="0.png" />' + '<select><option>1</option><option>2</option></select>' + '<img src="1.png" />' + '<input value="MOAR" />' + '<img src="2.png" />' + '<input type="range" value="' + (i % 100) + '" />' + '<img src="3.png" />' + '</div>' + '<div>' + i + ': ' + strings[i % 3] + '</div>' + '<div class="complex-stuff"><div>1</div><div>2</div><div>3</div>' + '<div>4</div><div>5</div><div>6</div><div>7</div><div>8</div>' + '<div>9</div><div>10</div></div>' + '</div>';
+				}
+			}
+
+			reset();
+		</script>
+	</body>
+</html>
